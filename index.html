@@ -61,6 +61,12 @@
             background: var(--tg-theme-secondary-bg-color, #f1f1f1);
             border-radius: 24px;
             min-width: 150px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .user-profile:active {
+            transform: scale(0.98);
         }
         
         .user-avatar {
@@ -253,11 +259,31 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
         }
         
         .location-btn:active {
             opacity: 0.8;
+            transform: scale(0.98);
+        }
+        
+        .location-btn.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .location-btn.disabled:active {
+            transform: none;
+            opacity: 0.6;
+        }
+        
+        .location-status {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #707579);
+            text-align: center;
+            margin-bottom: 16px;
+            padding: 8px;
+            display: none;
         }
         
         footer {
@@ -363,6 +389,19 @@
         .user-profile {
             animation: slideIn 0.5s ease;
         }
+        
+        /* Стиль для уведомления о местоположении */
+        .location-notice {
+            background: rgba(51, 144, 236, 0.1);
+            border: 1px solid rgba(51, 144, 236, 0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: var(--tg-theme-text-color, #000000);
+            text-align: center;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -384,9 +423,17 @@
             </div>
         </div>
         
+        <div class="location-notice" id="location-notice">
+            Для получения местоположения используйте встроенную функцию Telegram
+        </div>
+        
         <button class="location-btn" id="location-btn">
             📍 Погода по моему местоположению
         </button>
+        
+        <div class="location-status" id="location-status">
+            <!-- Статус получения местоположения -->
+        </div>
         
         <div class="search-container">
             <input type="text" id="city-input" placeholder="Введите город...">
@@ -445,7 +492,7 @@
         </div>
         
         <footer>
-            <p>Данные предоставлены OpenWeatherMap</p>
+            <p>Данные предоставлены Абие Studio</p>
         </footer>
     </div>
 
@@ -456,9 +503,29 @@
         // Расширяем приложение на весь экран
         tg.expand();
         
-        // Применяем тему Telegram
-        document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
-        document.body.style.color = tg.themeParams.text_color || '#000000';
+        // Включаем кнопку "Назад"
+        tg.BackButton.show();
+        
+        // Элементы DOM
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const locationBtn = document.getElementById('location-btn');
+        const weatherCard = document.getElementById('weather-card');
+        const errorMessage = document.getElementById('error-message');
+        const loading = document.getElementById('loading');
+        const locationStatus = document.getElementById('location-status');
+        const locationNotice = document.getElementById('location-notice');
+        
+        // API ключ для OpenWeatherMap
+        const API_KEY = '71b79eb28b25abb409de841a1ff76818';
+        
+        // Проверяем доступность геолокации Telegram
+        function checkLocationAvailability() {
+            // Telegram Web Apps не поддерживают стандартную геолокацию
+            // Используем Telegram Cloud API или определяем по IP
+            locationNotice.style.display = 'block';
+            locationBtn.textContent = '📍 Определить местоположение';
+        }
         
         // Обновление профиля пользователя Telegram
         function updateUserProfile() {
@@ -507,33 +574,9 @@
                 userProfile.style.display = 'flex';
             } else {
                 // Если данные пользователя недоступны
-                userProfile.style.display = 'flex'; // Все равно показываем, но с дефолтными значениями
+                userProfile.style.display = 'flex';
             }
         }
-        
-        // API ключ для OpenWeatherMap
-        const API_KEY = '71b79eb28b25abb409de841a1ff76818';
-        
-        // Элементы DOM
-        const cityInput = document.getElementById('city-input');
-        const searchBtn = document.getElementById('search-btn');
-        const locationBtn = document.getElementById('location-btn');
-        const weatherCard = document.getElementById('weather-card');
-        const errorMessage = document.getElementById('error-message');
-        const loading = document.getElementById('loading');
-        
-        // Элементы для отображения данных
-        const cityName = document.getElementById('city-name');
-        const weatherDescription = document.getElementById('weather-description');
-        const temperature = document.getElementById('temperature');
-        const weatherIcon = document.getElementById('weather-icon');
-        const feelsLike = document.getElementById('feels-like');
-        const humidity = document.getElementById('humidity');
-        const pressure = document.getElementById('pressure');
-        const windSpeed = document.getElementById('wind-speed');
-        const visibility = document.getElementById('visibility');
-        const sunrise = document.getElementById('sunrise');
-        const sunset = document.getElementById('sunset');
         
         // Показать/скрыть загрузку
         function showLoading(show) {
@@ -544,9 +587,25 @@
             }
         }
         
+        // Обновление статуса местоположения
+        function updateLocationStatus(message, isError = false) {
+            locationStatus.textContent = message;
+            locationStatus.style.color = isError ? 
+                'var(--tg-theme-destructive-text-color, #ff3b30)' : 
+                'var(--tg-theme-text-color, #000000)';
+            locationStatus.style.display = 'block';
+            
+            if (isError) {
+                setTimeout(() => {
+                    locationStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
         // Функция для получения погоды по городу
         async function getWeatherData(city) {
             showLoading(true);
+            locationStatus.style.display = 'none';
             
             try {
                 const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric&lang=ru`;
@@ -563,9 +622,9 @@
                 
             } catch (error) {
                 showLoading(false);
+                errorMessage.textContent = 'Город не найден. Проверьте правильность написания.';
                 errorMessage.style.display = 'block';
                 weatherCard.style.display = 'none';
-                console.error('Ошибка:', error);
                 
                 // Вибрация при ошибке (если поддерживается)
                 if (navigator.vibrate) {
@@ -577,6 +636,7 @@
         // Функция для получения погоды по координатам
         async function getWeatherByCoords(lat, lon) {
             showLoading(true);
+            updateLocationStatus('Получение данных о погоде...');
             
             try {
                 const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=ru`;
@@ -590,12 +650,66 @@
                 updateWeatherUI(data);
                 showLoading(false);
                 weatherCard.style.display = 'block';
+                updateLocationStatus(`Погода для ${data.name} загружена!`);
+                
+                setTimeout(() => {
+                    locationStatus.style.display = 'none';
+                }, 3000);
                 
             } catch (error) {
                 showLoading(false);
-                errorMessage.textContent = 'Не удалось получить данные о местоположении';
+                errorMessage.textContent = 'Не удалось получить данные о погоде для вашего местоположения';
                 errorMessage.style.display = 'block';
                 weatherCard.style.display = 'none';
+                updateLocationStatus('Ошибка получения данных о погоде', true);
+            }
+        }
+        
+        // Метод 1: Попытка получить местоположение через IP (если Telegram API не работает)
+        async function getLocationByIP() {
+            updateLocationStatus('Определение местоположения по IP...');
+            
+            try {
+                const ipResponse = await fetch('https://ipapi.co/json/');
+                const ipData = await ipResponse.json();
+                
+                if (ipData.latitude && ipData.longitude) {
+                    await getWeatherByCoords(ipData.latitude, ipData.longitude);
+                } else {
+                    throw new Error('Не удалось определить местоположение');
+                }
+            } catch (error) {
+                updateLocationStatus('Не удалось определить местоположение. Попробуйте ввести город вручную.', true);
+            }
+        }
+        
+        // Метод 2: Попытка использовать Telegram Cloud API для местоположения
+        async function requestTelegramLocation() {
+            updateLocationStatus('Запрос местоположения...');
+            
+            // Пытаемся использовать Telegram Cloud API
+            try {
+                // Сначала пробуем получить местоположение через геолокацию браузера
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        async (position) => {
+                            const { latitude, longitude } = position.coords;
+                            await getWeatherByCoords(latitude, longitude);
+                        },
+                        async (error) => {
+                            console.warn('Геолокация браузера не сработала:', error);
+                            // Если браузерная геолокация не сработала, пробуем по IP
+                            await getLocationByIP();
+                        },
+                        { timeout: 10000, maximumAge: 60000 }
+                    );
+                } else {
+                    // Если геолокация не поддерживается, используем IP
+                    await getLocationByIP();
+                }
+            } catch (error) {
+                console.error('Ошибка при запросе местоположения:', error);
+                await getLocationByIP();
             }
         }
         
@@ -634,31 +748,9 @@
             } else {
                 temperature.style.color = 'var(--tg-theme-text-color, #000000)';
             }
-        }
-        
-        // Получение местоположения пользователя
-        function getUserLocation() {
-            if (!navigator.geolocation) {
-                errorMessage.textContent = 'Геолокация не поддерживается вашим браузером';
-                errorMessage.style.display = 'block';
-                return;
-            }
             
-            showLoading(true);
-            
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    getWeatherByCoords(latitude, longitude);
-                },
-                (error) => {
-                    showLoading(false);
-                    errorMessage.textContent = 'Не удалось получить местоположение. Разрешите доступ к геолокации.';
-                    errorMessage.style.display = 'block';
-                    console.error('Ошибка геолокации:', error);
-                },
-                { timeout: 10000 }
-            );
+            // Сохраняем последний город в localStorage
+            localStorage.setItem('lastCity', data.name);
         }
         
         // Обработчики событий
@@ -666,11 +758,21 @@
             const city = cityInput.value.trim();
             if (city) {
                 getWeatherData(city);
-                cityInput.blur(); // Скрываем клавиатуру на мобильных устройствах
+                cityInput.blur();
             }
         });
         
-        locationBtn.addEventListener('click', getUserLocation);
+        locationBtn.addEventListener('click', async () => {
+            locationBtn.classList.add('disabled');
+            locationBtn.disabled = true;
+            
+            await requestTelegramLocation();
+            
+            setTimeout(() => {
+                locationBtn.classList.remove('disabled');
+                locationBtn.disabled = false;
+            }, 2000);
+        });
         
         cityInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
@@ -682,52 +784,53 @@
             }
         });
         
+        // Обработка клика по профилю пользователя
+        document.getElementById('user-profile').addEventListener('click', () => {
+            const user = tg.initDataUnsafe.user;
+            if (user) {
+                let userInfo = `👤 ${user.first_name || ''}`;
+                if (user.last_name) userInfo += ` ${user.last_name}`;
+                if (user.username) userInfo += `\n@${user.username}`;
+                if (user.language_code) userInfo += `\n🌐 ${user.language_code.toUpperCase()}`;
+                
+                tg.showAlert(userInfo);
+            }
+        });
+        
         // Инициализация при загрузке
-        window.addEventListener('load', () => {
+        window.addEventListener('load', async () => {
             // Обновляем профиль пользователя
             updateUserProfile();
             
-            // Загружаем погоду для Москвы по умолчанию
-            getWeatherData('Москва');
+            // Проверяем доступность геолокации
+            checkLocationAvailability();
+            
+            // Пробуем загрузить последний сохраненный город или город по умолчанию
+            const lastCity = localStorage.getItem('lastCity');
+            const defaultCity = lastCity || 'Искитим';
+            
+            // Устанавливаем значение в поле ввода
+            cityInput.value = defaultCity;
+            
+            // Загружаем погоду
+            await getWeatherData(defaultCity);
             
             // Фокусируем поле ввода
             setTimeout(() => {
                 cityInput.focus();
-            }, 500);
+                cityInput.select();
+            }, 1000);
             
-            // Настройка клавиатуры Telegram
-            if (tg.platform !== 'unknown') {
-                tg.MainButton.hide();
-                tg.BackButton.hide();
-            }
-            
-            // Показываем кнопку "Назад" если есть история
-            if (history.length > 1) {
-                tg.BackButton.show();
-            }
-        });
-        
-        // Обработка кнопки "Назад" в Telegram
-        tg.onEvent('backButtonClicked', () => {
-            if (weatherCard.style.display === 'block') {
-                weatherCard.style.display = 'none';
-                cityInput.value = '';
-                cityInput.focus();
-                tg.BackButton.hide();
-            } else {
-                tg.close();
-            }
-        });
-        
-        // Обработка клика по профилю пользователя
-        document.getElementById('user-profile').addEventListener('click', () => {
-            const user = tg.initDataUnsafe.user;
-            if (user && user.username) {
-                // Показываем информацию о пользователе
-                tg.showAlert(`👤 ${user.first_name || ''} ${user.last_name || ''}\n@${user.username}`);
-            } else {
-                tg.showAlert('Информация о пользователе доступна только в Telegram');
-            }
+            // Настройка кнопки "Назад"
+            tg.BackButton.onClick(() => {
+                if (weatherCard.style.display === 'block') {
+                    weatherCard.style.display = 'none';
+                    cityInput.value = '';
+                    cityInput.focus();
+                } else {
+                    tg.close();
+                }
+            });
         });
     </script>
 </body>
