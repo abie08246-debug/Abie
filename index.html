@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Погода в Telegram</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 16px;
+            margin: 0 auto;
+        }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 16px 0;
+        }
+        
+        .app-title {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        
+        h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #707579);
+            opacity: 0.8;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            border-radius: 24px;
+            min-width: 150px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            overflow: hidden;
+        }
+        
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .user-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--tg-theme-text-color, #000000);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+        }
+        
+        .user-status {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #707579);
+        }
+        
+        .search-container {
+            display: flex;
+            margin-bottom: 20px;
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            border-radius: 12px;
+            overflow: hidden;
+            padding: 4px;
+        }
+        
+        #city-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: transparent;
+            font-size: 16px;
+            color: var(--tg-theme-text-color, #000000);
+            outline: none;
+        }
+        
+        #city-input::placeholder {
+            color: var(--tg-theme-hint-color, #707579);
+        }
+        
+        #search-btn {
+            padding: 12px 20px;
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        #search-btn:active {
+            opacity: 0.8;
+        }
+        
+        .weather-card {
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .current-weather {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--tg-theme-hint-color, #707579);
+            opacity: 0.2;
+        }
+        
+        .weather-info {
+            flex: 1;
+        }
+        
+        .city-name {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        .weather-description {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #707579);
+            margin-bottom: 12px;
+            text-transform: capitalize;
+        }
+        
+        .temperature {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        .weather-icon {
+            width: 80px;
+            height: 80px;
+        }
+        
+        .weather-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .detail-item {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .detail-label {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #707579);
+            margin-bottom: 6px;
+        }
+        
+        .detail-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--tg-theme-text-color, #000000);
+        }
+        
+        .error-message {
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            display: none;
+            margin-bottom: 16px;
+            color: var(--tg-theme-text-color, #000000);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--tg-theme-hint-color, #707579);
+            display: none;
+        }
+        
+        .location-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: opacity 0.2s;
+        }
+        
+        .location-btn:active {
+            opacity: 0.8;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--tg-theme-hint-color, #707579);
+            opacity: 0.3;
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #707579);
+        }
+        
+        /* Адаптация для темной темы Telegram */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background: var(--tg-theme-bg-color, #0f0f0f);
+            }
+            
+            .user-profile {
+                background: var(--tg-theme-bg-color, #1a1a1a);
+            }
+        }
+        
+        /* Анимация загрузки */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--tg-theme-hint-color, #707579);
+            border-top-color: var(--tg-theme-button-color, #3390ec);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Адаптация под разные размеры экрана */
+        @media (max-width: 480px) {
+            .header-container {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
+            }
+            
+            .user-profile {
+                align-self: flex-start;
+                order: 1;
+                min-width: auto;
+            }
+            
+            .app-title {
+                align-items: flex-start;
+                order: 2;
+            }
+            
+            .weather-details {
+                grid-template-columns: 1fr;
+            }
+            
+            .temperature {
+                font-size: 40px;
+            }
+            
+            .weather-icon {
+                width: 70px;
+            }
+            
+            .user-name {
+                max-width: 120px;
+            }
+        }
+        
+        @media (max-width: 320px) {
+            .user-profile {
+                min-width: auto;
+                padding: 6px 8px;
+            }
+            
+            .user-avatar {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+            
+            .user-name {
+                font-size: 12px;
+                max-width: 80px;
+            }
+            
+            .user-status {
+                font-size: 10px;
+            }
+        }
+        
+        /* Анимация появления профиля */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .user-profile {
+            animation: slideIn 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-container">
+            <div class="user-profile" id="user-profile">
+                <div class="user-avatar" id="user-avatar">
+                    <!-- Аватар будет вставлен через JS -->
+                </div>
+                <div class="user-info">
+                    <div class="user-name" id="user-name">Пользователь</div>
+                    <div class="user-status" id="user-status">online</div>
+                </div>
+            </div>
+            
+            <div class="app-title">
+                <h1>🌤️ Погода</h1>
+                <p class="subtitle">Узнайте текущую погоду в любом городе</p>
+            </div>
+        </div>
+        
+        <button class="location-btn" id="location-btn">
+            📍 Погода по моему местоположению
+        </button>
+        
+        <div class="search-container">
+            <input type="text" id="city-input" placeholder="Введите город...">
+            <button id="search-btn">Найти</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Загрузка данных о погоде...</p>
+        </div>
+        
+        <div class="error-message" id="error-message">
+            Город не найден. Проверьте название и попробуйте снова.
+        </div>
+        
+        <div class="weather-card" id="weather-card">
+            <div class="current-weather">
+                <div class="weather-info">
+                    <h2 class="city-name" id="city-name">Город</h2>
+                    <p class="weather-description" id="weather-description">Описание</p>
+                    <div class="temperature" id="temperature">0°C</div>
+                </div>
+                <img class="weather-icon" id="weather-icon" src="" alt="Погода">
+            </div>
+            
+            <div class="weather-details">
+                <div class="detail-item">
+                    <div class="detail-label">Ощущается</div>
+                    <div class="detail-value" id="feels-like">0°C</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Влажность</div>
+                    <div class="detail-value" id="humidity">0%</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Давление</div>
+                    <div class="detail-value" id="pressure">0 hPa</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Ветер</div>
+                    <div class="detail-value" id="wind-speed">0 м/с</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Видимость</div>
+                    <div class="detail-value" id="visibility">0 км</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Восход</div>
+                    <div class="detail-value" id="sunrise">00:00</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Закат</div>
+                    <div class="detail-value" id="sunset">00:00</div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Данные предоставлены OpenWeatherMap</p>
+        </footer>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+        
+        // Расширяем приложение на весь экран
+        tg.expand();
+        
+        // Применяем тему Telegram
+        document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+        document.body.style.color = tg.themeParams.text_color || '#000000';
+        
+        // Обновление профиля пользователя Telegram
+        function updateUserProfile() {
+            const user = tg.initDataUnsafe.user;
+            const userProfile = document.getElementById('user-profile');
+            const userAvatar = document.getElementById('user-avatar');
+            const userName = document.getElementById('user-name');
+            const userStatus = document.getElementById('user-status');
+            
+            if (user) {
+                // Имя пользователя
+                const displayName = user.first_name || user.username || 'Пользователь';
+                userName.textContent = displayName;
+                
+                // Аватар пользователя
+                if (user.photo_url) {
+                    userAvatar.innerHTML = `<img src="${user.photo_url}" alt="${displayName}">`;
+                } else {
+                    // Если нет фото, показываем первую букву имени
+                    const firstLetter = displayName.charAt(0).toUpperCase();
+                    userAvatar.textContent = firstLetter;
+                    
+                    // Градиент на основе ID пользователя
+                    const userId = user.id;
+                    const colors = [
+                        ['#667eea', '#764ba2'],
+                        ['#f093fb', '#f5576c'],
+                        ['#4facfe', '#00f2fe'],
+                        ['#43e97b', '#38f9d7'],
+                        ['#fa709a', '#fee140']
+                    ];
+                    const colorIndex = userId % colors.length;
+                    userAvatar.style.background = `linear-gradient(135deg, ${colors[colorIndex][0]}, ${colors[colorIndex][1]})`;
+                }
+                
+                // Статус (если есть last_name, показываем фамилию)
+                if (user.last_name) {
+                    userStatus.textContent = user.last_name;
+                } else if (user.username) {
+                    userStatus.textContent = `@${user.username}`;
+                } else {
+                    userStatus.textContent = 'Telegram';
+                }
+                
+                // Показываем профиль
+                userProfile.style.display = 'flex';
+            } else {
+                // Если данные пользователя недоступны
+                userProfile.style.display = 'flex'; // Все равно показываем, но с дефолтными значениями
+            }
+        }
+        
+        // API ключ для OpenWeatherMap
+        const API_KEY = '71b79eb28b25abb409de841a1ff76818';
+        
+        // Элементы DOM
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const locationBtn = document.getElementById('location-btn');
+        const weatherCard = document.getElementById('weather-card');
+        const errorMessage = document.getElementById('error-message');
+        const loading = document.getElementById('loading');
+        
+        // Элементы для отображения данных
+        const cityName = document.getElementById('city-name');
+        const weatherDescription = document.getElementById('weather-description');
+        const temperature = document.getElementById('temperature');
+        const weatherIcon = document.getElementById('weather-icon');
+        const feelsLike = document.getElementById('feels-like');
+        const humidity = document.getElementById('humidity');
+        const pressure = document.getElementById('pressure');
+        const windSpeed = document.getElementById('wind-speed');
+        const visibility = document.getElementById('visibility');
+        const sunrise = document.getElementById('sunrise');
+        const sunset = document.getElementById('sunset');
+        
+        // Показать/скрыть загрузку
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            if (show) {
+                weatherCard.style.display = 'none';
+                errorMessage.style.display = 'none';
+            }
+        }
+        
+        // Функция для получения погоды по городу
+        async function getWeatherData(city) {
+            showLoading(true);
+            
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric&lang=ru`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error('Город не найден');
+                }
+                
+                const data = await response.json();
+                updateWeatherUI(data);
+                showLoading(false);
+                weatherCard.style.display = 'block';
+                
+            } catch (error) {
+                showLoading(false);
+                errorMessage.style.display = 'block';
+                weatherCard.style.display = 'none';
+                console.error('Ошибка:', error);
+                
+                // Вибрация при ошибке (если поддерживается)
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+            }
+        }
+        
+        // Функция для получения погоды по координатам
+        async function getWeatherByCoords(lat, lon) {
+            showLoading(true);
+            
+            try {
+                const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=ru`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error('Ошибка получения данных');
+                }
+                
+                const data = await response.json();
+                updateWeatherUI(data);
+                showLoading(false);
+                weatherCard.style.display = 'block';
+                
+            } catch (error) {
+                showLoading(false);
+                errorMessage.textContent = 'Не удалось получить данные о местоположении';
+                errorMessage.style.display = 'block';
+                weatherCard.style.display = 'none';
+            }
+        }
+        
+        // Обновление интерфейса
+        function updateWeatherUI(data) {
+            // Основные данные
+            cityName.textContent = `${data.name}, ${data.sys.country}`;
+            weatherDescription.textContent = data.weather[0].description;
+            temperature.textContent = `${Math.round(data.main.temp)}°C`;
+            
+            // Иконка погоды
+            const iconCode = data.weather[0].icon;
+            weatherIcon.src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+            weatherIcon.alt = data.weather[0].description;
+            
+            // Дополнительные данные
+            feelsLike.textContent = `${Math.round(data.main.feels_like)}°C`;
+            humidity.textContent = `${data.main.humidity}%`;
+            pressure.textContent = `${data.main.pressure} hPa`;
+            windSpeed.textContent = `${data.wind.speed} м/с`;
+            visibility.textContent = `${(data.visibility / 1000).toFixed(1)} км`;
+            
+            // Время восхода и закат
+            const sunriseTime = new Date(data.sys.sunrise * 1000);
+            const sunsetTime = new Date(data.sys.sunset * 1000);
+            
+            sunrise.textContent = `${sunriseTime.getHours().toString().padStart(2, '0')}:${sunriseTime.getMinutes().toString().padStart(2, '0')}`;
+            sunset.textContent = `${sunsetTime.getHours().toString().padStart(2, '0')}:${sunsetTime.getMinutes().toString().padStart(2, '0')}`;
+            
+            // Изменяем цвет температуры в зависимости от значения
+            const temp = data.main.temp;
+            if (temp > 25) {
+                temperature.style.color = '#ff6b6b'; // Тепло
+            } else if (temp < 0) {
+                temperature.style.color = '#74b9ff'; // Холодно
+            } else {
+                temperature.style.color = 'var(--tg-theme-text-color, #000000)';
+            }
+        }
+        
+        // Получение местоположения пользователя
+        function getUserLocation() {
+            if (!navigator.geolocation) {
+                errorMessage.textContent = 'Геолокация не поддерживается вашим браузером';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            showLoading(true);
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    getWeatherByCoords(latitude, longitude);
+                },
+                (error) => {
+                    showLoading(false);
+                    errorMessage.textContent = 'Не удалось получить местоположение. Разрешите доступ к геолокации.';
+                    errorMessage.style.display = 'block';
+                    console.error('Ошибка геолокации:', error);
+                },
+                { timeout: 10000 }
+            );
+        }
+        
+        // Обработчики событий
+        searchBtn.addEventListener('click', () => {
+            const city = cityInput.value.trim();
+            if (city) {
+                getWeatherData(city);
+                cityInput.blur(); // Скрываем клавиатуру на мобильных устройствах
+            }
+        });
+        
+        locationBtn.addEventListener('click', getUserLocation);
+        
+        cityInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const city = cityInput.value.trim();
+                if (city) {
+                    getWeatherData(city);
+                    cityInput.blur();
+                }
+            }
+        });
+        
+        // Инициализация при загрузке
+        window.addEventListener('load', () => {
+            // Обновляем профиль пользователя
+            updateUserProfile();
+            
+            // Загружаем погоду для Москвы по умолчанию
+            getWeatherData('Москва');
+            
+            // Фокусируем поле ввода
+            setTimeout(() => {
+                cityInput.focus();
+            }, 500);
+            
+            // Настройка клавиатуры Telegram
+            if (tg.platform !== 'unknown') {
+                tg.MainButton.hide();
+                tg.BackButton.hide();
+            }
+            
+            // Показываем кнопку "Назад" если есть история
+            if (history.length > 1) {
+                tg.BackButton.show();
+            }
+        });
+        
+        // Обработка кнопки "Назад" в Telegram
+        tg.onEvent('backButtonClicked', () => {
+            if (weatherCard.style.display === 'block') {
+                weatherCard.style.display = 'none';
+                cityInput.value = '';
+                cityInput.focus();
+                tg.BackButton.hide();
+            } else {
+                tg.close();
+            }
+        });
+        
+        // Обработка клика по профилю пользователя
+        document.getElementById('user-profile').addEventListener('click', () => {
+            const user = tg.initDataUnsafe.user;
+            if (user && user.username) {
+                // Показываем информацию о пользователе
+                tg.showAlert(`👤 ${user.first_name || ''} ${user.last_name || ''}\n@${user.username}`);
+            } else {
+                tg.showAlert('Информация о пользователе доступна только в Telegram');
+            }
+        });
+    </script>
+</body>
+</html>
